@@ -1,0 +1,60 @@
+#include <DHT.h>
+#include <IRremote.h>
+
+// DHT Sensor Configuration
+#define DHTPIN 2       // Pin connected to the DHT sensor
+#define DHTTYPE DHT11  // Using DHT11 sensor
+
+// IR Transmitter Pin
+#define IR_PIN 3       // Pin connected to the IR transmitter
+
+// Desired Room Temperature
+const float DESIRED_TEMP = 24.0;   // Room temperature to maintain
+const float TEMP_TOLERANCE = 1.0; // Allowable deviation (+/- 1°C)
+
+// IR codes for your AC
+unsigned long AC_ON_CODE = 0x20DF10EF;  // Replace with your AC ON signal
+unsigned long AC_OFF_CODE = 0x20DF906F; // Replace with your AC OFF signal
+
+DHT dht(DHTPIN, DHTTYPE);
+IRsend irsend(IR_PIN);
+
+// State tracking
+bool isACOn = false;
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+
+  // Initialize IR transmitter
+  IrSender.begin(IR_PIN, ENABLE_LED_FEEDBACK);
+
+  Serial.println("AC Automation System Initialized");
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+
+  if (isnan(temperature)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  Serial.print("Current Temperature: ");
+  Serial.println(temperature);
+
+  // AC control logic
+  if (temperature > (DESIRED_TEMP + TEMP_TOLERANCE) && !isACOn) {
+    // Send AC ON signal
+    irsend.sendNEC(AC_ON_CODE, 32); // Use NEC protocol, 32-bit code
+    isACOn = true;
+    Serial.println("AC TURNED ON");
+  } else if (temperature < (DESIRED_TEMP - TEMP_TOLERANCE) && isACOn) {
+    // Send AC OFF signal
+    irsend.sendNEC(AC_OFF_CODE, 32); // Use NEC protocol, 32-bit code
+    isACOn = false;
+    Serial.println("AC TURNED OFF");
+  }
+
+  delay(2000); // Wait 2 seconds before the next reading
+}
